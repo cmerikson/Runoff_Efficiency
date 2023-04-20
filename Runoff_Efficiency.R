@@ -964,12 +964,12 @@ Cluster_slopes <- function(cluster_number){
       geom_point(aes(Start_year,FullModel))+
       geom_line(aes(Start_year,FullModel))+
       scale_y_continuous(limits = c(-0.05,0.05),sec.axis = sec_axis(~.*20,name='Fraction of Combined Model'))+
-      labs(x='Start Year', y='Combined Model R.E. Slope',fill='Temperature Slope')+
+      labs(x='Start Year', y='Combined Model R.E. Trend',fill='Temperature Slope')+
       guides(fill='none')+
       theme_minimal()+
       theme(plot.title = element_text(size=8,hjust = 0.5),panel.grid = element_blank(),
-            axis.title.x = element_blank(),axis.title.y = element_text(size=5),axis.ticks = element_blank(),
-            axis.text.x = element_text(size=5), axis.text.y = element_text(size=5),
+            axis.title.x = element_blank(),axis.title.y = element_text(size=6),axis.ticks = element_blank(),
+            axis.text.x = element_text(size=6), axis.text.y = element_text(size=6),
             plot.subtitle = element_text(size=8,hjust = 0.5))
   ),
   xmin = long - 5.5, xmax = long + 5.5,
@@ -990,7 +990,7 @@ MapSlope = function(){
     geom_sf(data=ne_countries(country = 'United States of America',type = 'countries',scale = 'medium', returnclass = 'sf'), fill='white',color = "gray60") +
     geom_sf(data=ne_countries(country = 'Canada',type = 'countries',scale = 'medium', returnclass = 'sf'), fill='white',color = "gray60") + 
     coord_sf(xlim = c(-142, -50), ylim = c(24.5, 60), expand = FALSE)+
-    #annotation_scale(location = "bl", width_hint = 0.25) +
+    annotation_scale(location = "bl", width_hint = 0.25) +
     annotation_north_arrow(location = "bl", which_north = "true", 
                            pad_x = unit(55, "pt"), pad_y = unit(25, "pt"),
                            style = north_arrow_nautical()) +
@@ -1003,7 +1003,6 @@ MapSlope = function(){
 
 MapSlope()
 
-#ggsave(paste0(root,'\\Publication_Versions\\Vectorized_Figures\\SlopeTimeSeries.eps'),plot = MapSlope(),device = 'eps',height = 1626,width=1700,units=c('px'))
 
 #Southwest
 SW_Slope = ggplot()+
@@ -1019,12 +1018,12 @@ SW_Slope = ggplot()+
   geom_line(data=SlopeTable[cluster==10],aes(Start_year,FullModel))+
   scale_y_continuous(limits = c(-0.05,0.05),sec.axis = sec_axis(~.*20,name='Fraction of Combined Model'))+
   #guides(fill='none')+
-  labs(x='Start Year', y='Combined Model R.E. Slope',fill='Temperature Slope Magnitude')+
+  labs(x='Start Year', y='Combined Model R.E. Trend',fill='Temperature Slope Magnitude')+
   theme_bw()+theme(legend.key.size = unit(10,'pt'))
 
 Southwest_Case = (SW_RE + (SW_Precip / SW_Temp)) / SW_Slope +
   plot_layout(guides='keep')+
-  plot_annotation(tag_levels = 'a') & theme(plot.tag = element_text(size=20))
+  plot_annotation(tag_levels = 'A') & theme(plot.tag = element_text(size=20))
   
 
 # Relative Forcing
@@ -1185,7 +1184,7 @@ MapRose = function(){
     geom_sf(data=ne_countries(country = 'United States of America',type = 'countries',scale = 'medium', returnclass = 'sf'), fill='white',color = "gray60") +
     geom_sf(data=ne_countries(country = 'Canada',type = 'countries',scale = 'medium', returnclass = 'sf'), fill='white',color = "gray60") + 
     coord_sf(xlim = c(-142, -50), ylim = c(24.5, 60), expand = FALSE)+
-    #annotation_scale(location = "bl", width_hint = 0.25) +
+    annotation_scale(location = "bl", width_hint = 0.25) +
     annotation_north_arrow(location = "bl", which_north = "true", 
                            pad_x = unit(55, "pt"), pad_y = unit(25, "pt"),
                            style = north_arrow_nautical()) +
@@ -1197,6 +1196,7 @@ MapRose = function(){
 }
 
 MapRose()
+ggsave('Rose_Diagrams.pdf',MapRose(), width = 14.25, height = 8.85, units = 'in')
 
 #### Contribution Trends ####
 RegressionCoeff = StepwiseResults[,c('cluster','intercept','Precip_coeff','OffPrecip_coeff','Temp_coeff','OffTemp_coeff')]
@@ -1714,7 +1714,7 @@ Cluster_seasons <- function(cluster_number,season_code){
       labs(x=paste(season_labels[season_code],'Precipitation',sep = ' '),y=paste(season_labels[season_code],'Runoff Efficiency',sep = ' '),title=Group_Names[cluster_number])+
       theme_minimal()+
       theme(plot.title = element_text(size=9,hjust = 0.5),axis.title = element_text(size = 7),
-            axis.text = element_text(size=5,vjust = 0.5),plot.subtitle = element_text(size=8,hjust = 0.5))
+            axis.text = element_text(size=6,vjust = 0.5),plot.subtitle = element_text(size=8,hjust = 0.5))
   ),
   xmin = long - 5.5, xmax = long + 5.5,
   ymin = lat - 4, ymax = lat + 4))
@@ -1736,7 +1736,7 @@ Cluster_IndividualSeason <- function(cluster_number){
       labs(x=paste('Summer','Discharge',sep = ' '),y=paste('Summer','Runoff Efficiency',sep = ' '),title=Group_Names[cluster_number])+
       theme_minimal()+
       theme(plot.title = element_text(size=9,hjust = 0.5),axis.title = element_text(size = 7),
-            axis.text = element_text(size=5,vjust = 0.5),plot.subtitle = element_text(size=8,hjust = 0.5))
+            axis.text = element_text(size=6,vjust = 0.5),plot.subtitle = element_text(size=8,hjust = 0.5))
   ),
   xmin = long - 5.5, xmax = long + 5.5,
   ymin = lat - 4, ymax = lat + 4))

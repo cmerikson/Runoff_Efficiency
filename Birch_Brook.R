@@ -275,7 +275,7 @@ Summer_Winter_Fall = ggplot(Groundwater_Seasons[variable%in%c('Winter','Fall','O
   #guides(color='none')+
   #scale_y_continuous(limits = c(0,1.25))+
   labs(x='Summer Groundwater Elevation (m)',y='Season Runoff Efficiency',color='Season')+
-  theme_bw()
+  theme_bw()+theme(axis.title = element_text(size=13),legend.title = element_text(size=13),legend.text = element_text(size=10))
 
 Figure_5 = Summer_Winter_Fall + Fall_Summer + plot_annotation(tag_levels = 'A') & theme(plot.tag = element_text(size=20))
 
@@ -298,20 +298,20 @@ Summer_Precip_Fall_Winter_GW = ggplot(Groundwater_Precip[variable%in%c('Winter',
   guides(color='none')+
   scale_x_continuous(labels=scientific)+
   labs(x='Summer Precipitation (m)',y='Season Groundwater Elevation (m)',color='Season')+
-  theme_bw()
+  theme_bw()+theme(axis.title = element_text(size=13),legend.title = element_text(size=13),legend.text = element_text(size=10))
 
 Groundwater_Effect = Summer_Precip_Fall_Winter_GW + Summer_Winter_Fall +
-  plot_layout(guides='collect', heights = unit(c(15),c('cm')), widths = unit(c(15),c('cm')))+
-  plot_annotation(tag_levels = 'a') & theme(plot.tag = element_text(size=20))
+  plot_layout(guides='collect', heights = unit(c(400),c('pt')), widths = unit(c(400),c('pt')))+
+  plot_annotation(tag_levels = 'A') & theme(plot.tag = element_text(size=20))
   
 
 Annual = setDT(read.xlsx('Annual.xlsx'))
 
 ggplot(Annual[!(water.year==1992)],aes(`TotPcpt(m)`,`AveRunoff.(m/yr)`))+
   geom_point(size=3)+
-  geom_smooth(method='lm',se=F, formula = -0.0233983604644608+ y ~ x)+
+  geom_smooth(method='lm',se=F, formula = -0.0233983604644608+ y ~ x,color='gray30',linetype='dashed')+
   annotate('text',label=('y = 0.53x'),x=1.6,y=0.8)+
   #stat_regline_equation(label.x.npc='left',label.y.npc = 'top', formula =  -0.0233983604644608 + y ~ x)+
-  #stat_cor(label.x.npc='left',label.y.npc = 'top',digits = 1,aes(label=paste(..rr.label..,ifelse(readr::parse_number(..p.label..) < 0.001, "italic(p)<0.001", ..p.label..),sep='~`,`~')))+
+  stat_cor(label.x.npc='left',label.y.npc = 'top',digits = 1,aes(label=paste(..rr.label..,ifelse(readr::parse_number(..p.label..) < 0.001, "italic(p)<0.001", ..p.label..),sep='~`,`~')))+
   labs(x='Annual Precipitation (m)', y='Annual Runoff (m)')+
   theme_bw()
