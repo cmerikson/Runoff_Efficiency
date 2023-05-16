@@ -20,6 +20,11 @@ library(rnaturalearthdata)
 library(ggspatial)
 library(ggnewscale)
 library(scales)
+library(car)
+library(gstat)
+library(sp)
+library(stars)
+library(viridis)
 
 #### Prepare Sites ####
 All_Sites = fread(paste0(root,'\\Input_Data\\ClusteredStations.csv'),colClasses = c("site_number" = "character"))
@@ -254,6 +259,7 @@ All_Data = merge(All_Data,All_precip[,c('site_number','year','OffsetPrecip')],by
 
 All_Data = unique(All_Data,by=c('site_number','year'))
 saveRDS(All_Data,paste0(root,'\\Code_Exports\\Clustered_AllData.Rds'))
+All_Data = readRDS(paste0(root,'\\Code_Exports\\Clustered_AllData.Rds'))
 
 # Prepare Regression
 Zscores = All_Data[,c('site_number','cluster','year','mean_Qcms','Precip_m','OffsetPrecip','OffsetTemp','MeanTemp_K','RunoffRatio')]
@@ -294,6 +300,7 @@ RegressionData = readRDS(paste0(root,'\\Input_Data\\RegressionData.RDS'))
 # Regress
 ClusterResults = data.table(cluster=numeric(),zPrecipAv=numeric(),zOffTempAv=numeric(),Precip_pvalue=numeric(),OffTemp_pvalue=numeric())
 R_squared = data.table(adj.r.squared=numeric(),p.value=numeric())
+VIF = data.table(zPrecipAv=numeric(),zTempAv=numeric(),zOffTempAv=numeric(),zOffPrecipAv=numeric())
 sequence = (seq(from= 1, to = 16))
 R_squared = cbind(R_squared,sequence)
 setnames(R_squared,'sequence','cluster')
@@ -317,6 +324,8 @@ for (G in unique(RegressionData$cluster)) {
   R = R[['adj.r.squared']]
   R_squared = R_squared[cluster==G,adj.r.squared:=R]
   pvalue = lmp(TestFit)
+  vif = transpose(data.table(vif(TestFit)))
+  VIF = rbind(VIF,vif,use.names=F)
   R_squared = R_squared[cluster==G,p.value:=pvalue]
 }
 
@@ -332,6 +341,16 @@ summary(TempFit)
 OffTempFit = lm(data=RegressionData[cluster==10], zLogRunoffAv ~ zOffTempAv)
 summary(OffTempFit)
 
+# Testing for Multicollinearity
+Colinear = function(cluster_list,data){
+  model = summary(lm(data=data[cluster==cluster_list], zLogRunoffAv ~ zPrecipAv))
+  r = sqrt(model$r.squared)
+  ColinearityTest = data.table('cluster'=cluster_list, 'correlation'=r)
+}
+
+Colinearity = lapply(1:16, Colinear, data=RegressionData)
+Colinearity = rbindlist(Colinearity)
+
 #### Stepwise Regression ####
 
 # First Regression
@@ -341,6 +360,7 @@ sequence = (seq(from= 1, to = 16))
 Step1_R_squared = cbind(Step1_R_squared,sequence)
 setnames(Step1_R_squared,'sequence','cluster')
 RegressionData = setorder(RegressionData, cols='cluster')
+VIF = data.table(zPrecipAv=numeric(),zTempAv=numeric(),zOffTempAv=numeric(),zOffPrecipAv=numeric())
 
 for (G in unique(RegressionData$cluster)) {
   Step1 = lm(data=RegressionData[cluster==G], zLogRunoffAv ~ zPrecipAv + zTempAv + zOffPrecipAv + zOffTempAv)
@@ -353,6 +373,8 @@ for (G in unique(RegressionData$cluster)) {
   Step1_R_squared = Step1_R_squared[cluster==G,adj.r.squared:=R]
   pvalue = lmp(Step1)
   Step1_R_squared = Step1_R_squared[cluster==G,p.value:=pvalue]
+  vif = transpose(data.table(vif(Step1)))
+  VIF = rbind(VIF,vif,use.names=F)
 }
 
 Step1Results = unique(Step1Results,by='cluster')
@@ -364,8 +386,9 @@ for (i in unique(Step1Results$cluster)) {
   if (Step1Results[cluster==i,Precip_pvalue]<0.15 & Step1Results[cluster==i,OffPrecip_pvalue]<0.15 & Step1Results[cluster==i,Temp_pvalue]<0.15 & Step1Results[cluster==i,OffTemp_pvalue]<0.15) {
     Regress0 = (lm(data=RegressionData[cluster==i], zLogRunoffAv ~ zPrecipAv + zOffPrecipAv + zTempAv + zOffTempAv))
     Regress = setDT(tidy(Regress0))
-    row = row[,c('cluster','r.squared','intercept','Precip_pvalue','OffPrecip_pvalue','Temp_pvalue','OffTemp_pvalue','Precip_coeff','OffPrecip_coeff','Temp_coeff','OffTemp_coeff'):=
-                .(i,summary(Regress0)$adj.r.squared,Regress[1,estimate],Regress[2,p.value],Regress[3,p.value],Regress[4,p.value],Regress[5,p.value],Regress[2,estimate],Regress[3,estimate],Regress[4,estimate],Regress[5,estimate])]
+    vif = vif(Regress0)
+    row = row[,c('cluster','r.squared','intercept','Precip_pvalue','OffPrecip_pvalue','Temp_pvalue','OffTemp_pvalue','Precip_coeff','OffPrecip_coeff','Temp_coeff','OffTemp_coeff','Precip_vif','Temp_vif','OffTemp_vif','OffPrecip_vif'):=
+                .(i,summary(Regress0)$adj.r.squared,Regress[1,estimate],Regress[2,p.value],Regress[3,p.value],Regress[4,p.value],Regress[5,p.value],Regress[2,estimate],Regress[3,estimate],Regress[4,estimate],Regress[5,estimate],NA_real_,vif[2],vif[3],vif[1])]
     Step2Results = rbind(Step2Results,row)
     row = data.table()
   }
@@ -373,8 +396,9 @@ for (i in unique(Step1Results$cluster)) {
     if (((Step1Results[cluster==i,Temp_pvalue]))>0.15) {
       Regress0 = (lm(data=RegressionData[cluster==i], zLogRunoffAv ~ zPrecipAv + zOffPrecipAv + zOffTempAv))
       Regress = setDT(tidy(Regress0))
-      row = row[,c('cluster','r.squared','intercept','Precip_pvalue','OffPrecip_pvalue','Temp_pvalue','OffTemp_pvalue','Precip_coeff','OffPrecip_coeff','Temp_coeff','OffTemp_coeff'):=
-                  .(i,summary(Regress0)$adj.r.squared,Regress[1,estimate],Regress[2,p.value],Regress[3,p.value],NA_real_,Regress[4,p.value],Regress[2,estimate],Regress[3,estimate],NA_real_,Regress[4,estimate])]
+      vif = vif(Regress0)
+      row = row[,c('cluster','r.squared','intercept','Precip_pvalue','OffPrecip_pvalue','Temp_pvalue','OffTemp_pvalue','Precip_coeff','OffPrecip_coeff','Temp_coeff','OffTemp_coeff','Precip_vif','Temp_vif','OffTemp_vif','OffPrecip_vif'):=
+                  .(i,summary(Regress0)$adj.r.squared,Regress[1,estimate],Regress[2,p.value],Regress[3,p.value],NA_real_,Regress[4,p.value],Regress[2,estimate],Regress[3,estimate],NA_real_,Regress[4,estimate],vif[1],NA_real_,vif[3],vif[2])]
       Step2Results = rbind(Step2Results,row)
       row = data.table()
     }
@@ -383,8 +407,9 @@ for (i in unique(Step1Results$cluster)) {
     if (((Step1Results[cluster==i,OffTemp_pvalue]))>0.15) {
       Regress0 = (lm(data=RegressionData[cluster==i], zLogRunoffAv ~ zPrecipAv + zOffPrecipAv + zTempAv))
       Regress = setDT(tidy(Regress0))
-      row = row[,c('cluster','r.squared','intercept','Precip_pvalue','OffPrecip_pvalue','Temp_pvalue','OffTemp_pvalue','Precip_coeff','OffPrecip_coeff','Temp_coeff','OffTemp_coeff'):=
-                  .(i,summary(Regress0)$adj.r.squared,Regress[1,estimate],Regress[2,p.value],Regress[3,p.value],Regress[4,p.value],NA_real_,Regress[2,estimate],Regress[3,estimate],Regress[4,estimate],NA_real_)]
+      vif = vif(Regress0)
+      row = row[,c('cluster','r.squared','intercept','Precip_pvalue','OffPrecip_pvalue','Temp_pvalue','OffTemp_pvalue','Precip_coeff','OffPrecip_coeff','Temp_coeff','OffTemp_coeff','Precip_vif','Temp_vif','OffTemp_vif','OffPrecip_vif'):=
+                  .(i,summary(Regress0)$adj.r.squared,Regress[1,estimate],Regress[2,p.value],Regress[3,p.value],Regress[4,p.value],NA_real_,Regress[2,estimate],Regress[3,estimate],Regress[4,estimate],NA_real_,vif[1],vif[3],NA_real_,vif[2])]
       Step2Results = rbind(Step2Results,row)
       row = data.table()
     }
@@ -393,8 +418,9 @@ for (i in unique(Step1Results$cluster)) {
     if (((Step1Results[cluster==i,Precip_pvalue]))>0.15) {
       Regress0 = (lm(data=RegressionData[cluster==i], zLogRunoffAv ~ zOffPrecipAv + zTempAv + zOffTempAv))
       Regress = setDT(tidy(Regress0))
-      row = row[,c('cluster','r.squared','intercept','Precip_pvalue','OffPrecip_pvalue','Temp_pvalue','OffTemp_pvalue','Precip_coeff','OffPrecip_coeff','Temp_coeff','OffTemp_coeff'):=
-                  .(i,summary(Regress0)$adj.r.squared,Regress[1,estimate],NA_real_,Regress[2,p.value],Regress[3,p.value],Regress[4,p.value],NA_real_,Regress[2,estimate],Regress[3,estimate],Regress[4,estimate])]
+      vif = vif(Regress0)
+      row = row[,c('cluster','r.squared','intercept','Precip_pvalue','OffPrecip_pvalue','Temp_pvalue','OffTemp_pvalue','Precip_coeff','OffPrecip_coeff','Temp_coeff','OffTemp_coeff','Precip_vif','Temp_vif','OffTemp_vif','OffPrecip_vif'):=
+                  .(i,summary(Regress0)$adj.r.squared,Regress[1,estimate],NA_real_,Regress[2,p.value],Regress[3,p.value],Regress[4,p.value],NA_real_,Regress[2,estimate],Regress[3,estimate],Regress[4,estimate],NA_real_,vif[2],vif[3],vif[1])]
       Step2Results = rbind(Step2Results,row)
       row = data.table()
     }
@@ -403,8 +429,9 @@ for (i in unique(Step1Results$cluster)) {
     if (((Step1Results[cluster==i,OffPrecip_pvalue]))>0.15) {
       Regress0 = (lm(data=RegressionData[cluster==i], zLogRunoffAv ~ zPrecipAv + zTempAv + zOffTempAv))
       Regress = setDT(tidy(Regress0))
-      row = row[,c('cluster','r.squared','intercept','Precip_pvalue','OffPrecip_pvalue','Temp_pvalue','OffTemp_pvalue','Precip_coeff','OffPrecip_coeff','Temp_coeff','OffTemp_coeff'):=
-                  .(i,summary(Regress0)$adj.r.squared,Regress[1,estimate],Regress[2,p.value],NA_real_,Regress[3,p.value],Regress[4,p.value],Regress[2,estimate],NA_real_,Regress[3,estimate],Regress[4,estimate])]
+      vif = vif(Regress0)
+      row = row[,c('cluster','r.squared','intercept','Precip_pvalue','OffPrecip_pvalue','Temp_pvalue','OffTemp_pvalue','Precip_coeff','OffPrecip_coeff','Temp_coeff','OffTemp_coeff','Precip_vif','Temp_vif','OffTemp_vif','OffPrecip_vif'):=
+                  .(i,summary(Regress0)$adj.r.squared,Regress[1,estimate],Regress[2,p.value],NA_real_,Regress[3,p.value],Regress[4,p.value],Regress[2,estimate],NA_real_,Regress[3,estimate],Regress[4,estimate],vif[1],vif[2],vif[3],NA_real_)]
       Step2Results = rbind(Step2Results,row)
       row = data.table()
     }
@@ -421,8 +448,9 @@ for (i in unique(Step2Results$cluster)) {
       if ((Step2Results[cluster==i,Temp_pvalue])>0.15) {
         Regress0 = (lm(data=RegressionData[cluster==i], zLogRunoffAv ~  zOffPrecipAv + zOffTempAv))
         Regress = setDT(tidy(Regress0))
-        row = row[,c('cluster','r.squared','intercept','Precip_pvalue','OffPrecip_pvalue','Temp_pvalue','OffTemp_pvalue','Precip_coeff','OffPrecip_coeff','Temp_coeff','OffTemp_coeff'):=
-                .(i,summary(Regress0)$adj.r.squared,Regress[1,estimate],NA_real_,Regress[2,p.value],NA_real_,Regress[3,p.value],NA_real_,Regress[2,estimate],NA_real_,Regress[3,estimate])]
+        vif = vif(Regress0)
+        row = row[,c('cluster','r.squared','intercept','Precip_pvalue','OffPrecip_pvalue','Temp_pvalue','OffTemp_pvalue','Precip_coeff','OffPrecip_coeff','Temp_coeff','OffTemp_coeff','Precip_vif','Temp_vif','OffTemp_vif','OffPrecip_vif'):=
+                .(i,summary(Regress0)$adj.r.squared,Regress[1,estimate],NA_real_,Regress[2,p.value],NA_real_,Regress[3,p.value],NA_real_,Regress[2,estimate],NA_real_,Regress[3,estimate],NA_real_,NA_real_,vif[2],vif[1])]
         Step3Results = rbind(Step3Results,row)
         row = data.table()
       }
@@ -431,8 +459,9 @@ for (i in unique(Step2Results$cluster)) {
       if ((Step2Results[cluster==i,OffTemp_pvalue])>0.15) {
         Regress0 = (lm(data=RegressionData[cluster==i], zLogRunoffAv ~  zOffPrecipAv + zTempAv))
         Regress = setDT(tidy(Regress0))
-        row = row[,c('cluster','r.squared','intercept','Precip_pvalue','OffPrecip_pvalue','Temp_pvalue','OffTemp_pvalue','Precip_coeff','OffPrecip_coeff','Temp_coeff','OffTemp_coeff'):=
-                    .(i,summary(Regress0)$adj.r.squared,Regress[1,estimate],NA_real_,Regress[2,p.value],Regress[3,p.value],NA_real_,NA_real_,Regress[2,estimate],Regress[3,estimate],NA_real_)]
+        vif = vif(Regress0)
+        row = row[,c('cluster','r.squared','intercept','Precip_pvalue','OffPrecip_pvalue','Temp_pvalue','OffTemp_pvalue','Precip_coeff','OffPrecip_coeff','Temp_coeff','OffTemp_coeff','Precip_vif','Temp_vif','OffTemp_vif','OffPrecip_vif'):=
+                    .(i,summary(Regress0)$adj.r.squared,Regress[1,estimate],NA_real_,Regress[2,p.value],Regress[3,p.value],NA_real_,NA_real_,Regress[2,estimate],Regress[3,estimate],NA_real_,NA_real_,vif[2],NA_real_,vif[1])]
         Step3Results = rbind(Step3Results,row)
         row = data.table()
       }
@@ -441,8 +470,9 @@ for (i in unique(Step2Results$cluster)) {
       if ((Step2Results[cluster==i,OffPrecip_pvalue])>0.15) {
         Regress0 = (lm(data=RegressionData[cluster==i], zLogRunoffAv ~  zTempAv + zOffTempAv))
         Regress = setDT(tidy(Regress0))
-        row = row[,c('cluster','r.squared','intercept','Precip_pvalue','OffPrecip_pvalue','Temp_pvalue','OffTemp_pvalue','Precip_coeff','OffPrecip_coeff','Temp_coeff','OffTemp_coeff'):=
-                    .(i,summary(Regress0)$adj.r.squared,Regress[1,estimate],NA_real_,NA_real_,Regress[2,p.value],Regress[3,p.value],NA_real_,NA_real_,Regress[2,estimate],Regress[3,estimate])]
+        vif = vif(Regress0)
+        row = row[,c('cluster','r.squared','intercept','Precip_pvalue','OffPrecip_pvalue','Temp_pvalue','OffTemp_pvalue','Precip_coeff','OffPrecip_coeff','Temp_coeff','OffTemp_coeff','Precip_vif','Temp_vif','OffTemp_vif','OffPrecip_vif'):=
+                    .(i,summary(Regress0)$adj.r.squared,Regress[1,estimate],NA_real_,NA_real_,Regress[2,p.value],Regress[3,p.value],NA_real_,NA_real_,Regress[2,estimate],Regress[3,estimate],NA_real_,vif[1],vif[2],NA_real_)]
         Step3Results = rbind(Step3Results,row)
         row = data.table()
       }
@@ -454,8 +484,9 @@ for (i in unique(Step2Results$cluster)) {
       if ((Step2Results[cluster==i,Temp_pvalue])>0.15) {
         Regress0 = (lm(data=RegressionData[cluster==i], zLogRunoffAv ~  zPrecipAv + zOffTempAv))
         Regress = setDT(tidy(Regress0))
-        row = row[,c('cluster','r.squared','intercept','Precip_pvalue','OffPrecip_pvalue','Temp_pvalue','OffTemp_pvalue','Precip_coeff','OffPrecip_coeff','Temp_coeff','OffTemp_coeff'):=
-                    .(i,summary(Regress0)$adj.r.squared,Regress[1,estimate],Regress[2,p.value],NA_real_,NA_real_,Regress[3,p.value],Regress[2,estimate],NA_real_,NA_real_,Regress[3,estimate])]
+        vif = vif(Regress0)
+        row = row[,c('cluster','r.squared','intercept','Precip_pvalue','OffPrecip_pvalue','Temp_pvalue','OffTemp_pvalue','Precip_coeff','OffPrecip_coeff','Temp_coeff','OffTemp_coeff','Precip_vif','Temp_vif','OffTemp_vif','OffPrecip_vif'):=
+                    .(i,summary(Regress0)$adj.r.squared,Regress[1,estimate],Regress[2,p.value],NA_real_,NA_real_,Regress[3,p.value],Regress[2,estimate],NA_real_,NA_real_,Regress[3,estimate],vif[1],NA_real_,vif[2],NA_real_)]
         Step3Results = rbind(Step3Results,row)
         row = data.table()
       }
@@ -464,8 +495,9 @@ for (i in unique(Step2Results$cluster)) {
       if ((Step2Results[cluster==i,OffTemp_pvalue])>0.15) {
         Regress0 = (lm(data=RegressionData[cluster==i], zLogRunoffAv ~  zPrecipAv + zTempAv))
         Regress = setDT(tidy(Regress0))
-        row = row[,c('cluster','r.squared','intercept','Precip_pvalue','OffPrecip_pvalue','Temp_pvalue','OffTemp_pvalue','Precip_coeff','OffPrecip_coeff','Temp_coeff','OffTemp_coeff'):=
-                    .(i,summary(Regress0)$adj.r.squared,Regress[1,estimate],Regress[2,p.value],NA_real_,Regress[3,p.value],NA_real_,Regress[2,estimate],NA_real_,Regress[3,estimate],NA_real_)]
+        vif = vif(Regress0)
+        row = row[,c('cluster','r.squared','intercept','Precip_pvalue','OffPrecip_pvalue','Temp_pvalue','OffTemp_pvalue','Precip_coeff','OffPrecip_coeff','Temp_coeff','OffTemp_coeff','Precip_vif','Temp_vif','OffTemp_vif','OffPrecip_vif'):=
+                    .(i,summary(Regress0)$adj.r.squared,Regress[1,estimate],Regress[2,p.value],NA_real_,Regress[3,p.value],NA_real_,Regress[2,estimate],NA_real_,Regress[3,estimate],NA_real_,vif[1],vif[2],NA_real_,NA_real_)]
         Step3Results = rbind(Step3Results,row)
         row = data.table()
       }
@@ -474,8 +506,9 @@ for (i in unique(Step2Results$cluster)) {
       if ((Step2Results[cluster==i,Precip_pvalue])>0.15) {
         Regress0 = (lm(data=RegressionData[cluster==i], zLogRunoffAv ~  zTempAv + zOffTempAv))
         Regress = setDT(tidy(Regress0))
-        row = row[,c('cluster','r.squared','intercept','Precip_pvalue','OffPrecip_pvalue','Temp_pvalue','OffTemp_pvalue','Precip_coeff','OffPrecip_coeff','Temp_coeff','OffTemp_coeff'):=
-                    .(i,summary(Regress0)$adj.r.squared,Regress[1,estimate],NA_real_,NA_real_,Regress[2,p.value],Regress[3,p.value],NA_real_,NA_real_,Regress[2,estimate],Regress[3,estimate])]
+        vif = vif(Regress0)
+        row = row[,c('cluster','r.squared','intercept','Precip_pvalue','OffPrecip_pvalue','Temp_pvalue','OffTemp_pvalue','Precip_coeff','OffPrecip_coeff','Temp_coeff','OffTemp_coeff','Precip_vif','Temp_vif','OffTemp_vif','OffPrecip_vif'):=
+                    .(i,summary(Regress0)$adj.r.squared,Regress[1,estimate],NA_real_,NA_real_,Regress[2,p.value],Regress[3,p.value],NA_real_,NA_real_,Regress[2,estimate],Regress[3,estimate],NA_real_,vif[1],vif[2],NA_real_)]
         Step3Results = rbind(Step3Results,row)
         row = data.table()
       }
@@ -487,8 +520,9 @@ for (i in unique(Step2Results$cluster)) {
       if ((Step2Results[cluster==i,Precip_pvalue])>0.15) {
         Regress0 = (lm(data=RegressionData[cluster==i], zLogRunoffAv ~  zOffPrecipAv + zOffTempAv))
         Regress = setDT(tidy(Regress0))
-        row = row[,c('cluster','r.squared','intercept','Precip_pvalue','OffPrecip_pvalue','Temp_pvalue','OffTemp_pvalue','Precip_coeff','OffPrecip_coeff','Temp_coeff','OffTemp_coeff'):=
-                    .(i,summary(Regress0)$adj.r.squared,Regress[1,estimate],NA_real_,Regress[2,p.value],NA_real_,Regress[3,p.value],NA_real_,Regress[2,estimate],NA_real_,Regress[3,estimate])]
+        vif = vif(Regress0)
+        row = row[,c('cluster','r.squared','intercept','Precip_pvalue','OffPrecip_pvalue','Temp_pvalue','OffTemp_pvalue','Precip_coeff','OffPrecip_coeff','Temp_coeff','OffTemp_coeff','Precip_vif','Temp_vif','OffTemp_vif','OffPrecip_vif'):=
+                    .(i,summary(Regress0)$adj.r.squared,Regress[1,estimate],NA_real_,Regress[2,p.value],NA_real_,Regress[3,p.value],NA_real_,Regress[2,estimate],NA_real_,Regress[3,estimate],NA_real_,NA_real_,vif[2],vif[1])]
         Step3Results = rbind(Step3Results,row)
         row = data.table()
       }
@@ -497,8 +531,9 @@ for (i in unique(Step2Results$cluster)) {
       if ((Step2Results[cluster==i,OffTemp_pvalue])>0.15) {
         Regress0 = (lm(data=RegressionData[cluster==i], zLogRunoffAv ~  zPrecipAv + zOffPrecipAv))
         Regress = setDT(tidy(Regress0))
-        row = row[,c('cluster','r.squared','intercept','Precip_pvalue','OffPrecip_pvalue','Temp_pvalue','OffTemp_pvalue','Precip_coeff','OffPrecip_coeff','Temp_coeff','OffTemp_coeff'):=
-                    .(i,summary(Regress0)$adj.r.squared,Regress[1,estimate],Regress[2,p.value],Regress[3,p.value],NA_real_,NA_real_,Regress[2,estimate],Regress[3,estimate],NA_real_,NA_real_)]
+        vif = vif(Regress0)
+        row = row[,c('cluster','r.squared','intercept','Precip_pvalue','OffPrecip_pvalue','Temp_pvalue','OffTemp_pvalue','Precip_coeff','OffPrecip_coeff','Temp_coeff','OffTemp_coeff','Precip_vif','Temp_vif','OffTemp_vif','OffPrecip_vif'):=
+                    .(i,summary(Regress0)$adj.r.squared,Regress[1,estimate],Regress[2,p.value],Regress[3,p.value],NA_real_,NA_real_,Regress[2,estimate],Regress[3,estimate],NA_real_,NA_real_,vif[1],NA_real_,NA_real_,vif[2])]
         Step3Results = rbind(Step3Results,row)
         row = data.table()
       }
@@ -507,8 +542,9 @@ for (i in unique(Step2Results$cluster)) {
       if ((Step2Results[cluster==i,OffPrecip_pvalue])>0.15) {
         Regress0 = (lm(data=RegressionData[cluster==i], zLogRunoffAv ~  zPrecipAv + zOffTempAv))
         Regress = setDT(tidy(Regress0))
-        row = row[,c('cluster','r.squared','intercept','Precip_pvalue','OffPrecip_pvalue','Temp_pvalue','OffTemp_pvalue','Precip_coeff','OffPrecip_coeff','Temp_coeff','OffTemp_coeff'):=
-                    .(i,summary(Regress0)$adj.r.squared,Regress[1,estimate],Regress[2,p.value],NA_real_,NA_real_,Regress[3,p.value],Regress[2,estimate],NA_real_,NA_real_,Regress[3,estimate])]
+        vif = vif(Regress0)
+        row = row[,c('cluster','r.squared','intercept','Precip_pvalue','OffPrecip_pvalue','Temp_pvalue','OffTemp_pvalue','Precip_coeff','OffPrecip_coeff','Temp_coeff','OffTemp_coeff','Precip_vif','Temp_vif','OffTemp_vif','OffPrecip_vif'):=
+                    .(i,summary(Regress0)$adj.r.squared,Regress[1,estimate],Regress[2,p.value],NA_real_,NA_real_,Regress[3,p.value],Regress[2,estimate],NA_real_,NA_real_,Regress[3,estimate],vif[1],NA_real_,vif[2],NA_real_)]
         Step3Results = rbind(Step3Results,row)
         row = data.table()
       }
@@ -520,8 +556,9 @@ for (i in unique(Step2Results$cluster)) {
       if ((Step2Results[cluster==i,Precip_pvalue])>0.15) {
         Regress0 = (lm(data=RegressionData[cluster==i], zLogRunoffAv ~  zOffPrecipAv + zTempAv))
         Regress = setDT(tidy(Regress0))
-        row = row[,c('cluster','r.squared','intercept','Precip_pvalue','OffPrecip_pvalue','Temp_pvalue','OffTemp_pvalue','Precip_coeff','OffPrecip_coeff','Temp_coeff','OffTemp_coeff'):=
-                    .(i,summary(Regress0)$adj.r.squared,Regress[1,estimate],NA_real_,Regress[2,p.value],Regress[3,p.value],NA_real_,NA_real_,Regress[2,estimate],Regress[3,estimate],NA_real_)]
+        vif = vif(Regress0)
+        row = row[,c('cluster','r.squared','intercept','Precip_pvalue','OffPrecip_pvalue','Temp_pvalue','OffTemp_pvalue','Precip_coeff','OffPrecip_coeff','Temp_coeff','OffTemp_coeff','Precip_vif','Temp_vif','OffTemp_vif','OffPrecip_vif'):=
+                    .(i,summary(Regress0)$adj.r.squared,Regress[1,estimate],NA_real_,Regress[2,p.value],Regress[3,p.value],NA_real_,NA_real_,Regress[2,estimate],Regress[3,estimate],NA_real_,NA_real_,vif[2],NA_real_,vif[1])]
         Step3Results = rbind(Step3Results,row)
         row = data.table()
       }
@@ -530,8 +567,9 @@ for (i in unique(Step2Results$cluster)) {
       if ((Step2Results[cluster==i,Temp_pvalue])>0.15) {
         Regress0 = (lm(data=RegressionData[cluster==i], zLogRunoffAv ~  zPrecipAv + zOffPrecipAv))
         Regress = setDT(tidy(Regress0))
-        row = row[,c('cluster','r.squared','intercept','Precip_pvalue','OffPrecip_pvalue','Temp_pvalue','OffTemp_pvalue','Precip_coeff','OffPrecip_coeff','Temp_coeff','OffTemp_coeff'):=
-                    .(i,summary(Regress0)$adj.r.squared,Regress[1,estimate],Regress[2,p.value],Regress[3,p.value],NA_real_,NA_real_,Regress[2,estimate],Regress[3,estimate],NA_real_,NA_real_)]
+        vif = vif(Regress0)
+        row = row[,c('cluster','r.squared','intercept','Precip_pvalue','OffPrecip_pvalue','Temp_pvalue','OffTemp_pvalue','Precip_coeff','OffPrecip_coeff','Temp_coeff','OffTemp_coeff','Precip_vif','Temp_vif','OffTemp_vif','OffPrecip_vif'):=
+                    .(i,summary(Regress0)$adj.r.squared,Regress[1,estimate],Regress[2,p.value],Regress[3,p.value],NA_real_,NA_real_,Regress[2,estimate],Regress[3,estimate],NA_real_,NA_real_,vif[1],NA_real_,NA_real_,vif[2])]
         Step3Results = rbind(Step3Results,row)
         row = data.table()
       }
@@ -540,8 +578,9 @@ for (i in unique(Step2Results$cluster)) {
       if ((Step2Results[cluster==i,OffPrecip_pvalue])>0.15) {
         Regress0 = (lm(data=RegressionData[cluster==i], zLogRunoffAv ~  zPrecipAv + zTempAv))
         Regress = setDT(tidy(Regress0))
-        row = row[,c('cluster','r.squared','intercept','Precip_pvalue','OffPrecip_pvalue','Temp_pvalue','OffTemp_pvalue','Precip_coeff','OffPrecip_coeff','Temp_coeff','OffTemp_coeff'):=
-                    .(i,summary(Regress0)$adj.r.squared,Regress[1,estimate],Regress[2,p.value],NA_real_,Regress[3,p.value],NA_real_,Regress[2,estimate],NA_real_,Regress[3,estimate],NA_real_)]
+        vif = vif(Regress0)
+        row = row[,c('cluster','r.squared','intercept','Precip_pvalue','OffPrecip_pvalue','Temp_pvalue','OffTemp_pvalue','Precip_coeff','OffPrecip_coeff','Temp_coeff','OffTemp_coeff','Precip_vif','Temp_vif','OffTemp_vif','OffPrecip_vif'):=
+                    .(i,summary(Regress0)$adj.r.squared,Regress[1,estimate],Regress[2,p.value],NA_real_,Regress[3,p.value],NA_real_,Regress[2,estimate],NA_real_,Regress[3,estimate],NA_real_,vif[1],vif[2],NA_real_,NA_real_)]
         Step3Results = rbind(Step3Results,row)
         row = data.table()
       }
@@ -553,6 +592,10 @@ for (i in unique(Step2Results$cluster)) {
 StepwiseResults = rbind(Step2Results[cluster%in%c(1,3,5,6,7,8,9,10,12,15)],Step3Results) # Edit list based on Step3Results
 
 setorder(StepwiseResults,by='cluster')
+
+StepwiseResults = cbind(StepwiseResults,Colinearity[,2])
+
+write.xlsx(StepwiseResults,paste0(root,'\\Code_Exports\\Regression_SummaryTable.xlsx'))
 
 Pie_Column = rbind(StepwiseResults[,c('cluster','Precip_coeff')],StepwiseResults[,c('cluster','OffPrecip_coeff')],StepwiseResults[,c('cluster','Temp_coeff')],StepwiseResults[,c('cluster','OffTemp_coeff')],use.names=F)
 write.csv(Pie_Column[,Precip_coeff],paste0(root,'\\Input_Data\\Coeff_column.csv'))
@@ -781,6 +824,15 @@ ProjectionTable = ProjectionTable[,c('cluster','site_number','year','PModelLogRu
 ProjectionTable = ProjectionTable[,FullModel:=(PModelLogRunoff + TModelLogRunoff)]
 
 ModelData = cbind(RegressionData,ProjectionTable[,c('FullModel','PModelLogRunoff','TModelLogRunoff')])
+
+# Compare Modeled Values to Observational Values
+write.xlsx(ModelData,paste0(root,'\\Code_Exports\\Model_Observed_Comparison.xlsx'))
+ggplot(ModelData,aes(zLogRunoffAv,FullModel))+
+  geom_point(color='gray30',alpha=0.5)+
+  stat_function(fun=function(x) x,linetype='dashed')+
+  annotate('text',x=-2.5,y=-2.8,label='1:1')+
+  labs(x='Average Observational Runoff Efficiency',y='Combined Model Runoff Efficiecny')+
+  theme_bw()
 
 ModelSlopes = data.table(cluster=numeric(),Slope=numeric())
 row = data.table()
@@ -1917,3 +1969,55 @@ ggplot(FlowMagnitude,aes(ClusterRE,Q_Residual))+
   geom_point()+
   labs(x='Cluster Mean Runoff Efficiecny', y='Yearly Residual from Cluster Mean Discharge (cms)')+
   theme_bw()
+
+# Shapefiles
+HCDN_shp = read_sf('C:\\Users\\cmeri\\OneDrive - Dartmouth College\\Research\\Runoff_Scaling\\Data\\GIS\\HCDN_watersheds.shp')
+HCDN_shp = HCDN_shp[,c('identifier','name','geometry')]
+
+WSC_shp = read_sf('C:\\Users\\cmeri\\OneDrive - Dartmouth College\\Research\\Runoff_Scaling\\Data\\GIS\\WSC_Unregulated_LongRecord.shp')
+WSC_shp = st_transform(WSC_shp,4326)
+setnames(WSC_shp,'StationNum','identifier')
+setnames(WSC_shp,'NameNom','name')
+WSC_shp = WSC_shp[,c('identifier','name','geometry')]
+
+Shp = rbind(HCDN_shp,WSC_shp)
+
+# Map Data
+Contour_Data = All_Data[,Site_mean_runoff:=mean(RunoffRatio),by='site_number']
+
+US = ne_countries(country = 'United States of America',type = 'countries',scale = 'medium', returnclass = 'sf')
+Canada = ne_countries(country = 'Canada',type = 'countries',scale = 'medium', returnclass = 'sf')
+North_America = rbind(US,Canada)  
+North_America = st_set_crs(North_America,4326)
+North_America = st_transform(North_America, 'ESRI:102008')
+North_America_grid = st_make_grid(North_America,cellsize = 100000)
+
+# Interpolate Data
+Contour_sf = st_as_sf(Contour_Data,coords = c('LONGITUDE','LATITUDE'),crs=4326)
+Contour_sf = unique(Contour_sf[,c('Site_mean_runoff','geometry')],by='Site_mean_runoff')
+Contour_sf = st_transform(Contour_sf,'ESRI:102008')
+
+# Fit Variogram
+lzn.vgm <- variogram(scale(Site_mean_runoff)~1, Contour_sf) # calculates sample variogram values 
+lzn.fit <- fit.variogram(lzn.vgm, model=vgm(1, "Sph", 1500000, 1)) # fit model
+
+plot(lzn.vgm, lzn.fit) # plot the sample values, along with the fit model
+
+# Krige
+kriged <- krige(Contour_sf$Site_mean_runoff ~ 1, as_Spatial(Contour_sf$geometry), newdata=North_America_grid, model=lzn.fit)
+kriged <- st_as_sf(kriged)
+
+Kriged_Map = st_intersection(kriged,North_America)
+Geographic_Map = st_transform(Kriged_Map, 4326)
+
+ggplot()+
+  geom_sf(data=Kriged_Map,aes(fill=var1.pred),color=NA)+
+  #geom_sf(data=North_America,fill='transparent')+
+  scale_fill_viridis(option='turbo',limits=c(0,1),oob=scales::squish)+
+  #coord_sf(xlim = c(-142, -50), ylim = c(24.5, 60), expand = FALSE)+
+  coord_sf(xlim = c(-3000000, 3000000), ylim = c(-2000000,3000000), expand = FALSE)+
+  annotation_scale(location = "bl", width_hint = 0.25) +
+  annotation_north_arrow(location = "bl", which_north = "true", 
+                         pad_x = unit(55, "pt"), pad_y = unit(25, "pt"),
+                         style = north_arrow_nautical()) +
+  labs(x='Longitude',y='Latitude',fill='Kriged R.E.')
