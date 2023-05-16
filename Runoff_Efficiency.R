@@ -1990,7 +1990,7 @@ Canada = ne_countries(country = 'Canada',type = 'countries',scale = 'medium', re
 North_America = rbind(US,Canada)  
 North_America = st_set_crs(North_America,4326)
 North_America = st_transform(North_America, 'ESRI:102008')
-North_America_grid = st_make_grid(North_America,cellsize = 100000)
+North_America_grid = st_make_grid(North_America,cellsize = 50000)
 
 # Interpolate Data
 Contour_sf = st_as_sf(Contour_Data,coords = c('LONGITUDE','LATITUDE'),crs=4326)
@@ -2001,7 +2001,7 @@ Contour_sf = st_transform(Contour_sf,'ESRI:102008')
 lzn.vgm <- variogram(scale(Site_mean_runoff)~1, Contour_sf) # calculates sample variogram values 
 lzn.fit <- fit.variogram(lzn.vgm, model=vgm(1, "Sph", 1500000, 1)) # fit model
 
-plot(lzn.vgm, lzn.fit) # plot the sample values, along with the fit model
+plot(lzn.vgm, lzn.fit)
 
 # Krige
 kriged <- krige(Contour_sf$Site_mean_runoff ~ 1, as_Spatial(Contour_sf$geometry), newdata=North_America_grid, model=lzn.fit)
@@ -2012,9 +2012,7 @@ Geographic_Map = st_transform(Kriged_Map, 4326)
 
 ggplot()+
   geom_sf(data=Kriged_Map,aes(fill=var1.pred),color=NA)+
-  #geom_sf(data=North_America,fill='transparent')+
-  scale_fill_viridis(option='turbo',limits=c(0,1),oob=scales::squish)+
-  #coord_sf(xlim = c(-142, -50), ylim = c(24.5, 60), expand = FALSE)+
+  scale_fill_viridis(option='turbo', direction = -1,limits=c(0,1),oob=scales::squish)+
   coord_sf(xlim = c(-3000000, 3000000), ylim = c(-2000000,3000000), expand = FALSE)+
   annotation_scale(location = "bl", width_hint = 0.25) +
   annotation_north_arrow(location = "bl", which_north = "true", 
