@@ -9,9 +9,30 @@ library(rnaturalearth)
 library(rnaturalearthdata)
 library(sf)
 library(ggspatial)
+library(cluster)
+library(clValid)
+
+Group_Names = c('1' = 'Northern Parallel',
+                '2' = 'Central Canada',
+                '3' = 'Rocky Mountains',
+                '4' = 'Appalachians',
+                '5' = 'Northern Pacific Coast',
+                '6' = 'Southern Plains',
+                '7' = 'Northern Plains',
+                '8' = 'Central East',
+                '9' = 'Northern Atlantic',
+                '10' = 'Southwest',
+                '11' = 'Southern Pacific Coast',
+                '12' = 'Western Canada',
+                '13' = 'Rocky Lowland',
+                '14' = 'Pacific Northwest',
+                '15' = 'Great Lakes',
+                '16' = 'Southeast')
 
 # USGS
 setwd("C:\\Users\\Christian Erikson\\OneDrive - Dartmouth College\\Research\\Runoff_Ratio\\HydroRegions")
+setwd("C:\\Users\\cmeri\\OneDrive - Dartmouth College\\Research\\Runoff_Ratio\\HydroRegions")
+
 
 USGS_sites = fread('HCDN-2009_Station_Info.csv', colClasses = c("STATION ID" = "character"))
 USGS_sites = USGS_sites[!(STATE%in%c('AK','HI','PR'))]
@@ -65,6 +86,7 @@ setnames(WideData,'MeanNormQ.12','dec')
 
 # Canada
 setwd("C:\\Users\\Christian Erikson\\OneDrive - Dartmouth College\\Research\\Runoff_Ratio\\HydroRegions\\Canada")
+setwd("C:\\Users\\cmeri\\OneDrive - Dartmouth College\\Research\\Runoff_Ratio\\HydroRegions\\Canada")
 
 #download_hydat()
 
@@ -128,6 +150,7 @@ setnames(WideCanadaData,'MeanNormQ.12','dec')
 
 # Combind USGS and WSC data
 setwd("C:\\Users\\Christian Erikson\\OneDrive - Dartmouth College\\Research\\Runoff_Ratio\\HydroRegions")
+setwd("C:\\Users\\cmeri\\OneDrive - Dartmouth College\\Research\\Runoff_Ratio\\HydroRegions")
 
 CombinedData = rbind(WideData,WideCanadaData)
 
@@ -163,7 +186,7 @@ Scaled_ClustersData = data.frame(Scaled_ClustersData)
 rownames(Scaled_ClustersData) <- sites
 
 set.seed(0)
-Kmeans = kmeans(Scaled_ClustersData,14,25)
+Kmeans = kmeans(Scaled_ClustersData,5,25)
 
 Scaled_ClustersData = cbind(Scaled_ClustersData,Kmeans$cluster)
 names(Scaled_ClustersData)[names(Scaled_ClustersData)=='Kmeans$cluster'] = 'cluster'
@@ -179,6 +202,22 @@ ClusteringData = ClusteringData[cluster==13,cluster:=ifelse((LATITUDE>38 & LONGI
 ClusteringData = ClusteringData[cluster==10,cluster:=ifelse((LONGITUDE>-97.5),16,10)]
 
 saveRDS(ClusteringData,'ClusteringData.RDS')
+ClusteringData = readRDS('ClusteringData.RDS')
+
+# Silhouette 
+Silouette = silhouette(Scaled_ClustersData$cluster,dist = dist(Scaled_ClustersData[,c(1:15)]))
+windows()
+plot(Silouette)
+
+# Dunn Index
+Dunn = dunn(clusters = Scaled_ClustersData$cluster,Data = as.matrix(Scaled_ClustersData))
+
+Dunn_Results = read.xlsx(r"(C:\Users\cmeri\OneDrive - Dartmouth College\Research\Runoff_Ratio\HydroRegions\Dunn_Index.xlsx)")
+ggplot(Dunn_Results,aes(clusters,Dunn))+
+  geom_point()+
+  geom_line(linetype='dashed')+
+  labs(x='Number of Clusters',y='Dunn Index')+
+  theme_bw()
 
 # Centroids
 Centroids = ClusteringData[,c('cen_lat','cen_long'):=.(mean(LATITUDE),mean(LONGITUDE)),by='cluster']
@@ -192,13 +231,16 @@ ClusterMap =  ggplot(data = NULL) +
   geom_sf(data=ne_countries(country = 'Canada',type = 'countries',scale = 'medium', returnclass = 'sf'), fill='white',color = "gray60") + 
   coord_sf(xlim = c(-142, -50), ylim = c(24.5, 70), expand = FALSE)+
   annotation_scale(location = "bl", width_hint = 0.25) +
-  annotation_north_arrow(location = "bl", which_north = "true", 
-                         pad_x = unit(55, "pt"), pad_y = unit(25, "pt"),
+  annotation_north_arrow(location = "bl", which_north = "true", height = unit(2.5, 'cm'), width = unit(2.5,'cm'),
+                         pad_x = unit(45, "pt"), pad_y = unit(25, "pt"),
                          style = north_arrow_nautical()) +
-  geom_point(data=ClusteringData,aes(x=LONGITUDE,y=LATITUDE,fill=as.character(cluster)),color = 'black', pch = 21, size = 2)+
-  scale_color_manual(values=c('#cab2d6','#a6cee3','#1f78b4','#419486',"violetred4",'darksalmon','red','aquamarine','purple4','antiquewhite3','magenta','navy','goldenrod','khaki','sienna','darkseagreen'),labels = c('1' = 'Northern Parallel','2' = 'Central Canada','3' = 'Rocky Mountains','4' = 'Appalachians','5' = 'Northern Pacific Coast','6' = 'Southern Plains','7' = 'Northern Plains','8' = 'Central East','9' = 'Northern Atlantic','10' = 'Southwest','11' = 'Southern Pacific Coast','12' = 'Western Canada','13' = 'Rocky Lowland','14' = 'Pacific Northwest','15' = 'Great Lakes','16' = 'Southeast'))+
-  scale_fill_manual(values=c('#cab2d6','#a6cee3','#1f78b4','#419486',"violetred4",'darksalmon','red','aquamarine','purple4','antiquewhite3','magenta','navy','goldenrod','khaki','sienna','darkseagreen'),labels = c('1' = 'Northern Parallel','2' = 'Central Canada','3' = 'Rocky Mountains','4' = 'Appalachians','5' = 'Northern Pacific Coast','6' = 'Southern Plains','7' = 'Northern Plains','8' = 'Central East','9' = 'Northern Atlantic','10' = 'Southwest','11' = 'Southern Pacific Coast','12' = 'Western Canada','13' = 'Rocky Lowland','14' = 'Pacific Northwest','15' = 'Great Lakes','16' = 'Southeast'))+
-  labs(x='Longitude',y='Latitude',fill='Cluster')
+  geom_point(data=ClusteringData,aes(x=LONGITUDE,y=LATITUDE,fill=as.character(cluster)),color = 'transparent', pch = 21, size = 2)+
+  scale_fill_manual(values=c("#c79ae2", "#378811", "#cb1775", "#a7e831", "#c6dbae", "#d0cc36", "#0f1f5f", "#5648d3", "#5d1800", "#6ceac0", "#f24219", "#2cf52b", "#b00bd9", "#0b4512", "#fa7ee3", "#6a7d54"),labels = c('1' = 'Northern Parallel','2' = 'Central Canada','3' = 'Rocky Mountains','4' = 'Appalachians','5' = 'Northern Pacific Coast','6' = 'Southern Plains','7' = 'Northern Plains','8' = 'Central East','9' = 'Northern Atlantic','10' = 'Southwest','11' = 'Southern Pacific Coast','12' = 'Western Canada','13' = 'Rocky Lowland','14' = 'Pacific Northwest','15' = 'Great Lakes','16' = 'Southeast'), breaks=c('1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16'))+
+  #scale_color_manual(values=c('#cab2d6','#a6cee3','#1f78b4','#419486',"violetred4",'darksalmon','red','aquamarine','purple4','antiquewhite3','magenta','navy','goldenrod','khaki','sienna','darkseagreen'),labels = c('1' = 'Northern Parallel','2' = 'Central Canada','3' = 'Rocky Mountains','4' = 'Appalachians','5' = 'Northern Pacific Coast','6' = 'Southern Plains','7' = 'Northern Plains','8' = 'Central East','9' = 'Northern Atlantic','10' = 'Southwest','11' = 'Southern Pacific Coast','12' = 'Western Canada','13' = 'Rocky Lowland','14' = 'Pacific Northwest','15' = 'Great Lakes','16' = 'Southeast'))+
+  #scale_fill_manual(values=c('#cab2d6','#a6cee3','#1f78b4','#419486',"violetred4",'darksalmon','red','aquamarine','purple4','antiquewhite3','magenta','navy','goldenrod','khaki','sienna','darkseagreen'),labels = c('1' = 'Northern Parallel','2' = 'Central Canada','3' = 'Rocky Mountains','4' = 'Appalachians','5' = 'Northern Pacific Coast','6' = 'Southern Plains','7' = 'Northern Plains','8' = 'Central East','9' = 'Northern Atlantic','10' = 'Southwest','11' = 'Southern Pacific Coast','12' = 'Western Canada','13' = 'Rocky Lowland','14' = 'Pacific Northwest','15' = 'Great Lakes','16' = 'Southeast'))+
+  #geom_text(data=ClusteringData,aes(x=cen_long,y=cen_lat,label=paste(cluster,Group_Names[cluster])),size=5)+
+  labs(x='Longitude',y='Latitude',fill='Cluster')+
+  theme(axis.title = element_text(size=20), axis.text = element_text(size=16),legend.text = element_text(size=12),legend.title = element_text(size=18))
 
 write.csv(ClusteringData[,c('site_number','cluster','LATITUDE','LONGITUDE')],'ClusteredStations.csv')
 
