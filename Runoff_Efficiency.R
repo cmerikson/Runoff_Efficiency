@@ -604,6 +604,21 @@ write.csv(Pie_Column[,Precip_coeff],paste0(root,'\\Input_Data\\Coeff_column.csv'
 Step4 = lm(data=RegressionData[cluster==1], zLogRunoffAv ~ zPrecipAv + zOffPrecipAv + zTempAv + zPrecipAv:zTempAv)
 Step4 = setDT(tidy(Step4))
 
+# Compare to AIC
+stepwise = function(cluster_list,data_table) {
+  data = data_table[cluster==cluster_list]
+  data = data[,-'cluster']
+  intercept_model = lm(zLogRunoffAv ~ 1, data=data)
+  all_model = lm(zLogRunoffAv ~ ., data=data)
+  both = step(intercept_model, direction='both',scope = formula(all_model),trace=0)
+  Results = data.table(Variable=rownames(as.data.frame(both$coefficients)),coeff=coefficients(both),VIF=(if(ncol(both$model)>2){c(0,vif(both))}else{(c(0,0))}))
+  Results = Results[,c('r.squared','p.value','cluster'):=.(summary(both)$adj.r.squared,glance(both)$p.value,cluster_list)]
+  return(Results)
+}
+
+StepwiseRegression = lapply(c(1:16),stepwise,data_table=RegressionData[,c('cluster','zLogRunoffAv','zTempAv','zPrecipAv','zOffPrecipAv','zOffTempAv')])
+StepwiseRegression = rbindlist(StepwiseRegression)
+
 #### Z score Plots ####
 
 zPrecip = ggplot(ZscoreSummary[year>=1950 & site_number%in%RecordLength$site_number],aes(year,zPrecip))+
@@ -827,11 +842,12 @@ ModelData = cbind(RegressionData,ProjectionTable[,c('FullModel','PModelLogRunoff
 
 # Compare Modeled Values to Observational Values
 write.xlsx(ModelData,paste0(root,'\\Code_Exports\\Model_Observed_Comparison.xlsx'))
+ModelData = read.xlsx(paste0(root,'\\Code_Exports\\Model_Observed_Comparison.xlsx'))
 ggplot(ModelData,aes(zLogRunoffAv,FullModel))+
   geom_point(color='gray30',alpha=0.5)+
   stat_function(fun=function(x) x,linetype='dashed')+
   annotate('text',x=-2.5,y=-2.8,label='1:1')+
-  labs(x='Average Observational Runoff Efficiency',y='Combined Model Runoff Efficiecny')+
+  labs(x='Average Observational Runoff Efficiency (z-score)',y='Combined Model Runoff Efficiency (z-score)')+
   theme_bw()
 
 ModelSlopes = data.table(cluster=numeric(),Slope=numeric())
@@ -1019,7 +1035,7 @@ Cluster_slopes <- function(cluster_number){
       labs(x='Start Year', y='Combined Model R.E. Trend',fill='Temperature Slope')+
       guides(fill='none')+
       theme_minimal()+
-      theme(plot.title = element_text(size=8,hjust = 0.5),panel.grid = element_blank(),
+      theme(plot.title = element_text(size=8,hjust = 0.5,face='bold'),panel.grid = element_blank(),
             axis.title.x = element_blank(),axis.title.y = element_text(size=6),axis.ticks = element_blank(),
             axis.text.x = element_text(size=6), axis.text.y = element_text(size=6),
             plot.subtitle = element_text(size=8,hjust = 0.5))
@@ -1043,10 +1059,10 @@ MapSlope = function(){
     geom_sf(data=ne_countries(country = 'Canada',type = 'countries',scale = 'medium', returnclass = 'sf'), fill='white',color = "gray60") + 
     coord_sf(xlim = c(-142, -50), ylim = c(24.5, 60), expand = FALSE)+
     annotation_scale(location = "bl", width_hint = 0.25) +
-    annotation_north_arrow(location = "bl", which_north = "true", 
-                           pad_x = unit(55, "pt"), pad_y = unit(25, "pt"),
+    annotation_north_arrow(location = "bl", which_north = "true", height = unit(2.5, 'cm'), width = unit(2.5,'cm'),
+                           pad_x = unit(45, "pt"), pad_y = unit(25, "pt"),
                            style = north_arrow_nautical()) +
-    labs(x='Longitude',y='Latitude')
+    labs(x='Longitude',y='Latitude')+theme(axis.title = element_text(size=20), axis.text = element_text(size=16),legend.text = element_text(size=16),legend.title = element_text(size=18))
   
   Combined = Map + bar_sel + inset_element(extract_legend(GrobSample),left = 0.8,bottom = 0.1,right = 0.98,top = 0.45)
   
@@ -1209,11 +1225,11 @@ Cluster_rose <- function(cluster_number){
       scale_fill_manual(values = c('Inverse'='red','Positive'='royalblue'))+
       scale_alpha_manual(values = c('Marginally'=0.3,'Significant'=1))+
       scale_y_continuous(limits = c(0,2),breaks = 0)+
-      scale_x_discrete(labels=c('Temp.','Prior Temp.','Prior Preip.','Precip.'))+
+      scale_x_discrete(labels=c('Temp.','Prior Temp.','Prior Precip.','Precip.'))+
       geom_hline(yintercept = 2,linetype='dashed')+
       geom_hline(yintercept = 1, linetype='dashed')+
       theme_minimal()+
-      theme(plot.title = element_text(size=10,hjust = 0.5,vjust = 0.5),panel.grid = element_blank(),
+      theme(plot.title = element_text(size=10,hjust = 0.5,vjust = 0.5,face='bold'),panel.grid = element_blank(),
             axis.title = element_blank(),axis.ticks = element_blank(),axis.text.y = element_blank(),
             panel.grid.major = element_blank(),
             axis.text.x = element_text(vjust=-1),plot.subtitle = element_text(size=8,hjust=0.5,margin = margin(0,0,12,0)))
@@ -1237,10 +1253,10 @@ MapRose = function(){
     geom_sf(data=ne_countries(country = 'Canada',type = 'countries',scale = 'medium', returnclass = 'sf'), fill='white',color = "gray60") + 
     coord_sf(xlim = c(-142, -50), ylim = c(24.5, 60), expand = FALSE)+
     annotation_scale(location = "bl", width_hint = 0.25) +
-    annotation_north_arrow(location = "bl", which_north = "true", 
-                           pad_x = unit(55, "pt"), pad_y = unit(25, "pt"),
+    annotation_north_arrow(location = "bl", which_north = "true", height = unit(2.5, 'cm'), width = unit(2.5,'cm'),
+                           pad_x = unit(45, "pt"), pad_y = unit(25, "pt"),
                            style = north_arrow_nautical()) +
-    labs(x='Longitude',y='Latitude')
+    labs(x='Longitude',y='Latitude')+theme(axis.title = element_text(size=20), axis.text = element_text(size=16),legend.text = element_text(size=16),legend.title = element_text(size=18))
   
   Combined = Map + bar_sel + inset_element(extract_legend(GrobSample),left = 0.9,bottom = 0.1,right = 0.98,top = 0.4)
   
@@ -1248,7 +1264,7 @@ MapRose = function(){
 }
 
 MapRose()
-ggsave('Rose_Diagrams.pdf',MapRose(), width = 14.25, height = 8.85, units = 'in')
+ggsave(paste0(root,'\\Publication_Versions\\Vectorized_Figures\\Rose_Diagrams.pdf'),MapRose(), width = 14.25, height = 8.85, units = 'in')
 
 #### Contribution Trends ####
 RegressionCoeff = StepwiseResults[,c('cluster','intercept','Precip_coeff','OffPrecip_coeff','Temp_coeff','OffTemp_coeff')]
@@ -1306,7 +1322,7 @@ Cluster_model <- function(cluster_number){
       labs(title = Group_Names[cluster_number],y='R.E. Z-score',x='Year')+
            #subtitle = paste(paste('R.E. \u03BC=',format(round(RunoffStats[cluster_number,RunoffMean],2),nsmall=2),sep = ' '),paste('\u03c3',format(round(RunoffStats[cluster_number,RunoffSD],2),nsmall=2),sep='='),sep = '   '))+
       theme_minimal()+
-      theme(plot.title = element_text(size=9,hjust = 0.5),axis.title = element_text(size = 7),
+      theme(plot.title = element_text(size=9,hjust = 0.5,face='bold'),axis.title = element_text(size = 7),
             axis.text = element_text(size=6,vjust = 0.5),plot.subtitle = element_text(size=8,hjust = 0.5))
   ),
   xmin = long - 5.5, xmax = long + 5.5,
@@ -1321,10 +1337,10 @@ MapModel = function(){
     geom_sf(data=ne_countries(country = 'Canada',type = 'countries',scale = 'medium', returnclass = 'sf'), fill='white',color = "gray60") + 
     coord_sf(xlim = c(-142, -50), ylim = c(24.5, 60), expand = FALSE)+
     annotation_scale(location = "bl", width_hint = 0.25) +
-    annotation_north_arrow(location = "bl", which_north = "true", 
-                           pad_x = unit(55, "pt"), pad_y = unit(25, "pt"),
+    annotation_north_arrow(location = "bl", which_north = "true", height = unit(2.5, 'cm'), width = unit(2.5,'cm'),
+                           pad_x = unit(45, "pt"), pad_y = unit(25, "pt"),
                            style = north_arrow_nautical()) +
-    labs(x='Longitude',y='Latitude')
+    labs(x='Longitude',y='Latitude')+theme(axis.title = element_text(size=20), axis.text = element_text(size=16),legend.text = element_text(size=16),legend.title = element_text(size=18))
   
   Combined = Map + bar_sel
   
@@ -1386,6 +1402,8 @@ monthly_flow = function(month_number) {
 
 monthly_data = lapply(1:12,monthly_flow)
 monthly_data = rbindlist(monthly_data)
+saveRDS(monthly_data,paste0(root,'\\Input_Data\\monthly_discharge.RDS'))
+monthly_data = readRDS(paste0(root,'\\Input_Data\\monthly_discharge.RDS'))
 
 # monthZsummary = data.table()
 # for (n in unique(monthly_data$cluster)) {
@@ -1999,12 +2017,12 @@ Contour_sf = st_transform(Contour_sf,'ESRI:102008')
 
 # Fit Variogram
 lzn.vgm <- variogram(scale(Site_mean_runoff)~1, Contour_sf) # calculates sample variogram values 
-lzn.fit <- fit.variogram(lzn.vgm, model=vgm(1, "Sph", 1500000, 1)) # fit model
+lzn.fit <- lzn.fit <- fit.variogram(lzn.vgm, vgm(c("Exp", "Sph")), fit.kappa = TRUE) # fit model
 
 plot(lzn.vgm, lzn.fit)
 
 # Krige
-kriged <- krige(Contour_sf$Site_mean_runoff ~ 1, as_Spatial(Contour_sf$geometry), newdata=North_America_grid, model=lzn.fit)
+kriged <- krige(Contour_sf$Site_mean_runoff ~ 1, as_Spatial(Contour_sf$geometry), newdata=North_America_grid, model=lzn.fit, maxdist=300000)
 kriged <- st_as_sf(kriged)
 
 Kriged_Map = st_intersection(kriged,North_America)
@@ -2015,7 +2033,7 @@ ggplot()+
   scale_fill_viridis(option='turbo', direction = -1,limits=c(0,1),oob=scales::squish)+
   coord_sf(xlim = c(-3000000, 3000000), ylim = c(-2000000,3000000), expand = FALSE)+
   annotation_scale(location = "bl", width_hint = 0.25) +
-  annotation_north_arrow(location = "bl", which_north = "true", 
-                         pad_x = unit(55, "pt"), pad_y = unit(25, "pt"),
+  annotation_north_arrow(location = "bl", which_north = "true", height = unit(2.5, 'cm'), width = unit(2.5,'cm'),
+                         pad_x = unit(45, "pt"), pad_y = unit(25, "pt"),
                          style = north_arrow_nautical()) +
-  labs(x='Longitude',y='Latitude',fill='Kriged R.E.')
+  labs(x='Longitude',y='Latitude',fill='Kriged R.E.')+theme(axis.title = element_text(size=20), axis.text = element_text(size=16),legend.text = element_text(size=14),legend.title = element_text(size=18))
