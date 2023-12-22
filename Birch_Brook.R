@@ -275,7 +275,7 @@ Summer_Winter_Fall = ggplot(Groundwater_Seasons[variable%in%c('Winter','Fall','O
   #guides(color='none')+
   #scale_y_continuous(limits = c(0,1.25))+
   labs(x='Summer Groundwater Elevation (m)',y='Season Runoff Efficiency',color='Season')+
-  theme_bw()+theme(axis.title = element_text(size=13),legend.title = element_text(size=13),legend.text = element_text(size=10))
+  theme_bw()+theme(axis.title = element_text(size=16),axis.text = element_text(size=12),legend.title = element_text(size=13),legend.text = element_text(size=10))
 
 Figure_5 = Summer_Winter_Fall + Fall_Summer + plot_annotation(tag_levels = 'A') & theme(plot.tag = element_text(size=20))
 
@@ -298,7 +298,7 @@ Summer_Precip_Fall_Winter_GW = ggplot(Groundwater_Precip[variable%in%c('Winter',
   guides(color='none')+
   scale_x_continuous(labels=scientific)+
   labs(x='Summer Precipitation (m)',y='Season Groundwater Elevation (m)',color='Season')+
-  theme_bw()+theme(axis.title = element_text(size=13),legend.title = element_text(size=13),legend.text = element_text(size=10))
+  theme_bw()+theme(axis.title = element_text(size=16),axis.text = element_text(size=12),legend.title = element_text(size=13),legend.text = element_text(size=10))
 
 Groundwater_Effect = Summer_Precip_Fall_Winter_GW + Summer_Winter_Fall +
   plot_layout(guides='collect', heights = unit(c(400),c('pt')), widths = unit(c(400),c('pt')))+
