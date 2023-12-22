@@ -943,7 +943,7 @@ SW_RE = ggplot()+
   geom_smooth(data=ProjectionTable[cluster==10 & year>1990],aes(year,FullModel),color='blue',method = 'lm',se=F)+
   geom_smooth(data=ProjectionTable[cluster==10 & year>2000],aes(year,FullModel),color='purple',method = 'lm',se=F)+
   labs(x='Year',y='Combined Model R.E.')+
-  theme_bw()
+  theme_bw()+theme(axis.title = element_text(size=16), axis.text = element_text(size=14))
 
 SW_Precip = ggplot()+
   geom_point(data=ProjectionTable[cluster==10],aes(year,PModelLogRunoff),color='black')+
@@ -954,7 +954,7 @@ SW_Precip = ggplot()+
   geom_smooth(data=ProjectionTable[cluster==10 & year>1990],aes(year,PModelLogRunoff),color='blue',method = 'lm',se=F)+
   geom_smooth(data=ProjectionTable[cluster==10 & year>2000],aes(year,PModelLogRunoff),color='purple',method = 'lm',se=F)+
   labs(x='Year',y='Precip. Model R.E.')+
-  theme_bw()
+  theme_bw()+theme(axis.title = element_text(size=12), axis.text = element_text(size=12))
 
 SW_Temp = ggplot()+ 
   geom_point(data=ProjectionTable[cluster==10],aes(year,TModelLogRunoff),color='black')+
@@ -965,7 +965,7 @@ SW_Temp = ggplot()+
   geom_smooth(data=ProjectionTable[cluster==10 & year>1990],aes(year,TModelLogRunoff),color='blue',method = 'lm',se=F)+
   geom_smooth(data=ProjectionTable[cluster==10 & year>2000],aes(year,TModelLogRunoff),color='purple',method = 'lm',se=F)+
   labs(x='Year',y='Temp. Model R.E.')+
-  theme_bw()
+  theme_bw()+theme(axis.title = element_text(size=12), axis.text = element_text(size=12))
 
 # Map of Slopes
 slope_year = function(start_year,InputTable){
@@ -1076,7 +1076,7 @@ MapSlope()
 SW_Slope = ggplot()+
   geom_col(data=SlopeTable[cluster==10],aes(Start_year-1.5,NormPRatio/20,fill=abs(PrecipSlope)),width=3,color='grey70')+
   scale_fill_gradient(low = 'lightblue',high ='navyblue')+
-  labs(fill='Precipitation Slope Magnitude')+
+  labs(fill='Precip. Slope Magnitude')+
   #guides(fill='none')+
   new_scale_fill()+
   geom_col(data=SlopeTable[cluster==10],aes(Start_year+1.5,NormTRatio/20,fill=abs(TempSlope)),width=3,color='grey70')+
@@ -1086,8 +1086,8 @@ SW_Slope = ggplot()+
   geom_line(data=SlopeTable[cluster==10],aes(Start_year,FullModel))+
   scale_y_continuous(limits = c(-0.05,0.05),sec.axis = sec_axis(~.*20,name='Fraction of Combined Model'))+
   #guides(fill='none')+
-  labs(x='Start Year', y='Combined Model R.E. Trend',fill='Temperature Slope Magnitude')+
-  theme_bw()+theme(legend.key.size = unit(10,'pt'))
+  labs(x='Start Year', y='Combined Model R.E. Trend',fill='Temp. Slope Magnitude')+
+  theme_bw()+theme(legend.key.size = unit(10,'pt'),axis.title = element_text(size=17), axis.text = element_text(size=15),legend.text = element_text(size=10),legend.title = element_text(size=13))
 
 Southwest_Case = (SW_RE + (SW_Precip / SW_Temp)) / SW_Slope +
   plot_layout(guides='keep')+
@@ -1802,7 +1802,7 @@ Cluster_IndividualSeason <- function(cluster_number){
       {if(lmp(lm(data = plot_sel, zSeasonRunoffAv ~ column))<=0.05) geom_smooth(aes(column,zSeasonRunoffAv),color='black',method='lm',se=F,size=1.25)}+
       {if(lmp(lm(data = plot_sel, zSeasonRunoffAv ~ column))<=0.05) stat_cor(size=2.5,label.y.npc='top',label.x.npc = 'left',aes(label=paste(..rr.label..,ifelse(readr::parse_number(..p.label..) < 0.001, "p<0.001", ..p.label..),sep='~`,`~')))}+
       guides(color='none')+
-      scale_color_manual(values = c('JJA'='red','DJF'='cornflowerblue','MAM'='mediumseagreen','SON'='slateblue4'),labels=c('JJA'='Summer','MAM'='Spring','DJF'='Winter','SON'='Fall'))+
+      scale_color_manual(values = c('JJA'='red','DJF'='cornflowerblue','MAM'='mediumseagreen','SON'='orange'),labels=c('JJA'='Summer','MAM'='Spring','DJF'='Winter','SON'='Fall'))+
       labs(x=paste('Summer','Discharge',sep = ' '),y=paste('Summer','Runoff Efficiency',sep = ' '),title=Group_Names[cluster_number])+
       theme_minimal()+
       theme(plot.title = element_text(size=9,hjust = 0.5),axis.title = element_text(size = 7),
@@ -1820,10 +1820,10 @@ MapSeasons = function(season_code){
     geom_sf(data=ne_countries(country = 'Canada',type = 'countries',scale = 'medium', returnclass = 'sf'), fill='white',color = "gray60") + 
     coord_sf(xlim = c(-142, -50), ylim = c(24.5, 60), expand = FALSE)+
     annotation_scale(location = "bl", width_hint = 0.25) +
-    annotation_north_arrow(location = "bl", which_north = "true", 
-                           pad_x = unit(55, "pt"), pad_y = unit(25, "pt"),
+    annotation_north_arrow(location = "bl", which_north = "true", height = unit(2.5, 'cm'), width = unit(2.5,'cm'),
+                           pad_x = unit(45, "pt"), pad_y = unit(25, "pt"),
                            style = north_arrow_nautical()) +
-    labs(x='Longitude',y='Latitude')
+    labs(x='Longitude',y='Latitude')+theme(axis.title = element_text(size=20), axis.text = element_text(size=16),legend.text = element_text(size=16),legend.title = element_text(size=18))
   
   Combined = Map + bar_sel #+ inset_element(extract_legend(GrobSample),left = 0.9,bottom = 0.1,right = 0.98,top = 0.4)
   
@@ -1838,10 +1838,10 @@ MapVariableSeason = function(){
     geom_sf(data=ne_countries(country = 'Canada',type = 'countries',scale = 'medium', returnclass = 'sf'), fill='white',color = "gray60") + 
     coord_sf(xlim = c(-142, -50), ylim = c(24.5, 60), expand = FALSE)+
     annotation_scale(location = "bl", width_hint = 0.25) +
-    annotation_north_arrow(location = "bl", which_north = "true", 
-                           pad_x = unit(55, "pt"), pad_y = unit(25, "pt"),
+    annotation_north_arrow(location = "bl", which_north = "true", height = unit(2.5, 'cm'), width = unit(2.5,'cm'),
+                           pad_x = unit(45, "pt"), pad_y = unit(25, "pt"),
                            style = north_arrow_nautical()) +
-    labs(x='Longitude',y='Latitude')
+    labs(x='Longitude',y='Latitude')+theme(axis.title = element_text(size=20), axis.text = element_text(size=16),legend.text = element_text(size=16),legend.title = element_text(size=18))
   
   Combined = Map + bar_sel #+ inset_element(extract_legend(GrobSample),left = 0.9,bottom = 0.1,right = 0.98,top = 0.4)
   
@@ -1967,10 +1967,10 @@ MapSeasonRose = function(){
     geom_sf(data=ne_countries(country = 'Canada',type = 'countries',scale = 'medium', returnclass = 'sf'), fill='white',color = "gray60") + 
     coord_sf(xlim = c(-142, -50), ylim = c(24.5, 60), expand = FALSE)+
     annotation_scale(location = "bl", width_hint = 0.25) +
-    annotation_north_arrow(location = "bl", which_north = "true", 
-                           pad_x = unit(55, "pt"), pad_y = unit(25, "pt"),
+    annotation_north_arrow(location = "bl", which_north = "true", height = unit(2.5, 'cm'), width = unit(2.5,'cm'),
+                           pad_x = unit(45, "pt"), pad_y = unit(25, "pt"),
                            style = north_arrow_nautical()) +
-    labs(x='Longitude',y='Latitude')
+    labs(x='Longitude',y='Latitude')+theme(axis.title = element_text(size=20), axis.text = element_text(size=16),legend.text = element_text(size=16),legend.title = element_text(size=18))
   
   Combined = Map + bar_sel + inset_element(extract_legend(GrobSample),left = 0.9,bottom = 0.1,right = 0.98,top = 0.4)
   
