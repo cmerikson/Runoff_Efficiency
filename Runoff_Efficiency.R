@@ -910,7 +910,7 @@ slope_plots = function(cluster_number) {
     geom_smooth(data=ProjectionTable[cluster==cluster_number & year>1980],aes(year,PModelLogRunoff),color='orange',method = 'lm',se=F)+
     geom_smooth(data=ProjectionTable[cluster==cluster_number & year>1990],aes(year,PModelLogRunoff),color='purple',method = 'lm',se=F)+
     geom_smooth(data=ProjectionTable[cluster==cluster_number & year>2000],aes(year,PModelLogRunoff),color='navyblue',method = 'lm',se=F)+
-    labs(x='Year',y='Precipitation Modeled R.E.')+
+    labs(x='Year',y=expression(paste('Precipitation Modeled ', italic('R'), '\U2091')))+
     theme_bw()
    
    Temp = ggplot()+ 
@@ -921,7 +921,7 @@ slope_plots = function(cluster_number) {
     geom_smooth(data=ProjectionTable[cluster==cluster_number & year>1980],aes(year,TModelLogRunoff),color='orange',method = 'lm',se=F)+
     geom_smooth(data=ProjectionTable[cluster==cluster_number & year>1990],aes(year,TModelLogRunoff),color='purple',method = 'lm',se=F)+
     geom_smooth(data=ProjectionTable[cluster==cluster_number & year>2000],aes(year,TModelLogRunoff),color='navyblue',method = 'lm',se=F)+
-    labs(x='Year',y='Temperature Modeled R.E.')+
+    labs(x='Year',y=expression(paste('Temperature Modeled ',italic('R'), '\U2091')))+
     theme_bw()
    
     Output <<- RE / (Precip + Temp) + 
@@ -942,7 +942,7 @@ SW_RE = ggplot()+
   geom_smooth(data=ProjectionTable[cluster==10 & year>1980],aes(year,FullModel),color='green',method = 'lm',se=F)+
   geom_smooth(data=ProjectionTable[cluster==10 & year>1990],aes(year,FullModel),color='blue',method = 'lm',se=F)+
   geom_smooth(data=ProjectionTable[cluster==10 & year>2000],aes(year,FullModel),color='purple',method = 'lm',se=F)+
-  labs(x='Year',y='Combined Model R.E.')+
+  labs(x='Year',y=expression(paste('Combined Model ', italic('R'), '\U2091 Z-score')))+
   theme_bw()+theme(axis.title = element_text(size=16), axis.text = element_text(size=14))
 
 SW_Precip = ggplot()+
@@ -953,7 +953,7 @@ SW_Precip = ggplot()+
   geom_smooth(data=ProjectionTable[cluster==10 & year>1980],aes(year,PModelLogRunoff),color='green',method = 'lm',se=F)+
   geom_smooth(data=ProjectionTable[cluster==10 & year>1990],aes(year,PModelLogRunoff),color='blue',method = 'lm',se=F)+
   geom_smooth(data=ProjectionTable[cluster==10 & year>2000],aes(year,PModelLogRunoff),color='purple',method = 'lm',se=F)+
-  labs(x='Year',y='Precip. Model R.E.')+
+  labs(x='Year',y=expression(paste('Precip. Model ', italic('R'),'\U2091')))+
   theme_bw()+theme(axis.title = element_text(size=12), axis.text = element_text(size=12))
 
 SW_Temp = ggplot()+ 
@@ -964,7 +964,7 @@ SW_Temp = ggplot()+
   geom_smooth(data=ProjectionTable[cluster==10 & year>1980],aes(year,TModelLogRunoff),color='green',method = 'lm',se=F)+
   geom_smooth(data=ProjectionTable[cluster==10 & year>1990],aes(year,TModelLogRunoff),color='blue',method = 'lm',se=F)+
   geom_smooth(data=ProjectionTable[cluster==10 & year>2000],aes(year,TModelLogRunoff),color='purple',method = 'lm',se=F)+
-  labs(x='Year',y='Temp. Model R.E.')+
+  labs(x='Year',y=expression(paste('Temp. Model ', italic('R'),'\U2091')))+
   theme_bw()+theme(axis.title = element_text(size=12), axis.text = element_text(size=12))
 
 # Map of Slopes
@@ -1032,7 +1032,7 @@ Cluster_slopes <- function(cluster_number){
       geom_point(aes(Start_year,FullModel))+
       geom_line(aes(Start_year,FullModel))+
       scale_y_continuous(limits = c(-0.05,0.05),sec.axis = sec_axis(~.*20,name='Fraction of Combined Model'))+
-      labs(x='Start Year', y='Combined Model R.E. Trend',fill='Temperature Slope')+
+      labs(x='Start Year', y=expression(paste('Combined Model ', italic('R'), '\U2091 Trend')),fill='Temperature Slope')+
       guides(fill='none')+
       theme_minimal()+
       theme(plot.title = element_text(size=8,hjust = 0.5,face='bold'),panel.grid = element_blank(),
@@ -1086,7 +1086,7 @@ SW_Slope = ggplot()+
   geom_line(data=SlopeTable[cluster==10],aes(Start_year,FullModel))+
   scale_y_continuous(limits = c(-0.05,0.05),sec.axis = sec_axis(~.*20,name='Fraction of Combined Model'))+
   #guides(fill='none')+
-  labs(x='Start Year', y='Combined Model R.E. Trend',fill='Temp. Slope Magnitude')+
+  labs(x='Start Year', y=expression(paste('Combined Model ', italic('R'),'\U2091 Trend')),fill='Temp. Slope Magnitude')+
   theme_bw()+theme(legend.key.size = unit(10,'pt'),axis.title = element_text(size=17), axis.text = element_text(size=15),legend.text = element_text(size=10),legend.title = element_text(size=13))
 
 Southwest_Case = (SW_RE + (SW_Precip / SW_Temp)) / SW_Slope +
@@ -1129,7 +1129,7 @@ Cluster_rf <- function(cluster_number){
       #annotate('text',x=1.5,y=0,label='Precipitation',size=3,fontface=2)+
       #annotate('text',x=2.5,y=0,label='Temperature',size=3,fontface=2)+
       labs(title = Group_Names[cluster_number],fill='Variable', y='Fraction of Change',
-           subtitle = paste(paste(paste('R.E. \u03BC=',format(round(RunoffStats[cluster_number,RunoffMean],2),nsmall=2),sep = ' '),paste('\u00B1',format(round(RunoffStats[cluster_number,RunoffSD],2),nsmall=2),sep=' '),sep = ' '),paste('R\U00B2 =',paste(format(round(StepwiseResults[cluster==cluster_number,r.squared],2),nsmall=2))),sep='  '))+
+           subtitle = paste(paste(paste(expression(italic('R')),'\U2091 \u03BC=',format(round(RunoffStats[cluster_number,RunoffMean],2),nsmall=2),sep = ' '),paste('\u00B1',format(round(RunoffStats[cluster_number,RunoffSD],2),nsmall=2),sep=' '),sep = ' '),paste('R\U00B2 =',paste(format(round(StepwiseResults[cluster==cluster_number,r.squared],2),nsmall=2))),sep='  '))+
       scale_fill_manual(values = c('- Temp.'='darkred','+ Temp.'='red','+ Precip.'='blue','- Precip.'='darkblue'))+
       theme_minimal()+
       theme(plot.title = element_text(size=10,hjust = 0.5),panel.grid = element_blank(),
@@ -1211,6 +1211,8 @@ GrobSample = ggplot(Rose_Data[cluster==5],aes(fct_reorder(Variable,Order),Scaled
                          panel.grid.major = element_blank(),
                          axis.text.x = element_text(vjust=-1,size=20),plot.subtitle = element_text(size=8,hjust=0.5,margin = margin(0,0,12,0)))
 
+italic_R = expression(italic('R'))
+
 Cluster_rose <- function(cluster_number){
   long <- Centroids[cluster == cluster_number]$Cent_lon
   lat <- Centroids[cluster == cluster_number]$Cent_lat
@@ -1221,7 +1223,7 @@ Cluster_rose <- function(cluster_number){
       coord_curvedpolar(clip='off')+
       guides(fill='none',alpha='none')+
       labs(title = Group_Names[cluster_number],fill='Trend',
-           subtitle = paste(paste(paste('R.E. \u03BC=',format(round(RunoffStats[cluster_number,RunoffMean],2),nsmall=2),sep = ' '),paste('\u00B1',format(round(RunoffStats[cluster_number,RunoffSD],2),nsmall=2),sep=' '),sep = ' '),paste('R\U00B2 =',paste(format(round(StepwiseResults[cluster==cluster_number,r.squared],2),nsmall=2))),sep='  '))+
+           subtitle = paste(paste(paste('R\U2091 \u03BC=',format(round(RunoffStats[cluster_number,RunoffMean],2),nsmall=2),sep = ' '),paste('\u00B1',format(round(RunoffStats[cluster_number,RunoffSD],2),nsmall=2),sep=' '),sep = ' '),paste('R\U00B2 =',paste(format(round(StepwiseResults[cluster==cluster_number,r.squared],2),nsmall=2))),sep='  '))+
       scale_fill_manual(values = c('Inverse'='red','Positive'='royalblue'))+
       scale_alpha_manual(values = c('Marginally'=0.3,'Significant'=1))+
       scale_y_continuous(limits = c(0,2),breaks = 0)+
@@ -1319,8 +1321,8 @@ Cluster_model <- function(cluster_number){
       geom_line(aes(year,SmoothDeviation),color='black',size=0.5)+
       #scale_y_continuous(limits = c(-0.35,0.35))+
       guides(fill='none')+
-      labs(title = Group_Names[cluster_number],y='R.E. Z-score',x='Year')+
-           #subtitle = paste(paste('R.E. \u03BC=',format(round(RunoffStats[cluster_number,RunoffMean],2),nsmall=2),sep = ' '),paste('\u03c3',format(round(RunoffStats[cluster_number,RunoffSD],2),nsmall=2),sep='='),sep = '   '))+
+      labs(title = Group_Names[cluster_number],y=expression(paste(italic('R'),'\U2091 Z-score')),x='Year')+
+           #subtitle = paste(paste('\U1D445\U2091 \u03BC=',format(round(RunoffStats[cluster_number,RunoffMean],2),nsmall=2),sep = ' '),paste('\u03c3',format(round(RunoffStats[cluster_number,RunoffSD],2),nsmall=2),sep='='),sep = '   '))+
       theme_minimal()+
       theme(plot.title = element_text(size=9,hjust = 0.5,face='bold'),axis.title = element_text(size = 7),
             axis.text = element_text(size=6,vjust = 0.5),plot.subtitle = element_text(size=8,hjust = 0.5))
@@ -1989,10 +1991,10 @@ ggplot(FlowMagnitude,aes(ClusterRE,Q_Residual))+
   theme_bw()
 
 # Shapefiles
-HCDN_shp = read_sf('C:\\Users\\cmeri\\OneDrive - Dartmouth College\\Research\\Runoff_Scaling\\Data\\GIS\\HCDN_watersheds.shp')
+HCDN_shp = read_sf('C:\\Users\\cmeri\\OneDrive - Dartmouth College\\Research\\Archive\\Runoff_Scaling\\Data\\GIS\\HCDN_watersheds.shp')
 HCDN_shp = HCDN_shp[,c('identifier','name','geometry')]
 
-WSC_shp = read_sf('C:\\Users\\cmeri\\OneDrive - Dartmouth College\\Research\\Runoff_Scaling\\Data\\GIS\\WSC_Unregulated_LongRecord.shp')
+WSC_shp = read_sf('C:\\Users\\cmeri\\OneDrive - Dartmouth College\\Research\\Archive\\Runoff_Scaling\\Data\\GIS\\WSC_Unregulated_LongRecord.shp')
 WSC_shp = st_transform(WSC_shp,4326)
 setnames(WSC_shp,'StationNum','identifier')
 setnames(WSC_shp,'NameNom','name')
@@ -2030,10 +2032,110 @@ Geographic_Map = st_transform(Kriged_Map, 4326)
 
 ggplot()+
   geom_sf(data=Kriged_Map,aes(fill=var1.pred),color=NA)+
+  geom_sf(data=North_America,fill=NA,color='black')+
   scale_fill_viridis(option='turbo', direction = -1,limits=c(0,1),oob=scales::squish)+
   coord_sf(xlim = c(-3000000, 3000000), ylim = c(-2000000,3000000), expand = FALSE)+
   annotation_scale(location = "bl", width_hint = 0.25) +
   annotation_north_arrow(location = "bl", which_north = "true", height = unit(2.5, 'cm'), width = unit(2.5,'cm'),
                          pad_x = unit(45, "pt"), pad_y = unit(25, "pt"),
                          style = north_arrow_nautical()) +
-  labs(x='Longitude',y='Latitude',fill='Kriged R.E.')+theme(axis.title = element_text(size=20), axis.text = element_text(size=16),legend.text = element_text(size=14),legend.title = element_text(size=18))
+  labs(x='Longitude',y='Latitude',fill=expression(paste('Kriged ', italic('R'), '\U2091')))+theme(axis.title = element_text(size=20), axis.text = element_text(size=16),legend.text = element_text(size=14),legend.title = element_text(size=18))
+
+#### Supplemental Temperature Plots ####
+
+Centroids = setDT(read.xlsx(paste0(root,'\\Input_Data\\ClusterCentroids_Shift.xlsx')))
+
+GrobSample = ggplot()+
+  geom_col(data=SlopeTable[cluster==10],aes(Start_year,TempSlope),width=3,color='grey70')+
+  geom_hline(yintercept = 0,color='gray70',linetype='dashed')+
+  scale_y_continuous(limits = c(-0.05,0.05))+
+  labs(x='Start Year', y='Temperature Slope Magnitude')+
+  theme_bw()+theme(legend.key.size = unit(10,'pt'))
+
+Temp_mag <- function(cluster_number){
+  long <- Centroids[cluster == cluster_number]$Cent_lon
+  lat <- Centroids[cluster == cluster_number]$Cent_lat
+  plot_sel <- SlopeTable[cluster == cluster_number]
+  return(annotation_custom(grob = ggplotGrob(
+    ggplot(plot_sel)+
+      geom_col(aes(Start_year,TempSlope),width=3,fill='darkred')+
+      geom_hline(yintercept = 0,color='gray70',linetype='dashed')+
+      scale_y_continuous(limits = c(-0.02,0.02))+
+      labs(x='Start Year', y='Temperature Slope',title = Group_Names[cluster_number])+
+      theme_minimal()+
+      theme(plot.title = element_text(size=8,hjust = 0.5,face='bold'),panel.grid = element_blank(),
+            axis.title.x = element_blank(),axis.title.y = element_text(size=6),axis.ticks = element_blank(),
+            axis.text.x = element_text(size=6), axis.text.y = element_text(size=6),
+            plot.subtitle = element_text(size=8,hjust = 0.5))
+  ),
+  xmin = long - 5.5, xmax = long + 5.5,
+  ymin = lat - 4, ymax = lat + 4))
+}
+
+MapTempA = function(){
+  bar_sel = lapply(cluster_list,Temp_mag)
+  
+  Map = ggplot(data = NULL) +  
+    geom_sf(data=ne_countries(country = 'United States of America',type = 'countries',scale = 'medium', returnclass = 'sf'), fill='white',color = "gray60") +
+    geom_sf(data=ne_countries(country = 'Canada',type = 'countries',scale = 'medium', returnclass = 'sf'), fill='white',color = "gray60") + 
+    coord_sf(xlim = c(-142, -50), ylim = c(24.5, 60), expand = FALSE)+
+    annotation_scale(location = "bl", width_hint = 0.25) +
+    annotation_north_arrow(location = "bl", which_north = "true", height = unit(2.5, 'cm'), width = unit(2.5,'cm'),
+                           pad_x = unit(45, "pt"), pad_y = unit(25, "pt"),
+                           style = north_arrow_nautical()) +
+    labs(x='Longitude',y='Latitude')+theme(axis.title = element_text(size=20), axis.text = element_text(size=16),legend.text = element_text(size=16),legend.title = element_text(size=18))
+  
+  Combined = Map + bar_sel
+  
+  return(Combined)
+}
+
+MapTempA()
+
+GrobSample = ggplot()+
+  geom_col(data=SlopeTable[cluster==10],aes(Start_year,NormTRatio),width=3,color='grey70')+
+  geom_hline(yintercept = 0,color='gray70',linetype='dashed')+
+  scale_y_continuous(limits = c(-0.05,0.05))+
+  labs(x='Start Year', y='Temperature Slope Magnitude')+
+  theme_bw()+theme(legend.key.size = unit(10,'pt'))
+
+Temp_mag <- function(cluster_number){
+  long <- Centroids[cluster == cluster_number]$Cent_lon
+  lat <- Centroids[cluster == cluster_number]$Cent_lat
+  plot_sel <- SlopeTable[cluster == cluster_number]
+  return(annotation_custom(grob = ggplotGrob(
+    ggplot(plot_sel)+
+      geom_col(aes(Start_year,NormTRatio),width=3,fill='darkred')+
+      geom_hline(yintercept = 0,color='gray70',linetype='dashed')+
+      scale_y_continuous(limits = c(-1,1))+
+      labs(x='Start Year', y='Temperature Slope',title = Group_Names[cluster_number])+
+      theme_minimal()+
+      theme(plot.title = element_text(size=8,hjust = 0.5,face='bold'),panel.grid = element_blank(),
+            axis.title.x = element_blank(),axis.title.y = element_text(size=6),axis.ticks = element_blank(),
+            axis.text.x = element_text(size=6), axis.text.y = element_text(size=6),
+            plot.subtitle = element_text(size=8,hjust = 0.5))
+  ),
+  xmin = long - 5.5, xmax = long + 5.5,
+  ymin = lat - 4, ymax = lat + 4))
+}
+
+MapTempB = function(){
+  bar_sel = lapply(cluster_list,Temp_mag)
+  
+  Map = ggplot(data = NULL) +  
+    geom_sf(data=ne_countries(country = 'United States of America',type = 'countries',scale = 'medium', returnclass = 'sf'), fill='white',color = "gray60") +
+    geom_sf(data=ne_countries(country = 'Canada',type = 'countries',scale = 'medium', returnclass = 'sf'), fill='white',color = "gray60") + 
+    coord_sf(xlim = c(-142, -50), ylim = c(24.5, 60), expand = FALSE)+
+    annotation_scale(location = "bl", width_hint = 0.25) +
+    annotation_north_arrow(location = "bl", which_north = "true", height = unit(2.5, 'cm'), width = unit(2.5,'cm'),
+                           pad_x = unit(45, "pt"), pad_y = unit(25, "pt"),
+                           style = north_arrow_nautical()) +
+    labs(x='Longitude',y='Latitude')+theme(axis.title = element_text(size=20), axis.text = element_text(size=16),legend.text = element_text(size=16),legend.title = element_text(size=18))
+  
+  Combined = Map + bar_sel
+  
+  return(Combined)
+}
+
+MapTempB()
+
